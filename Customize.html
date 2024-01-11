@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CV Zoom</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .customize {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        background-repeat: no-repeat;
+        background-image: url("default/black.png"); /* you can change the URL to your desired background image */
+        background-size: contain; /* changed from 'cover' to 'contain' */
+        background-position: center; /* Ensure the image always centers */
+      }
+
+      #canvasContainer {
+        width: 600px;
+        height: 600px;
+        overflow: hidden;
+        position: relative;
+        background-repeat: no-repeat;
+        background-size: contain; /* changed from 'cover' to 'contain' */
+        background-position: center; /* Ensure the image always centers */
+      }
+
+      #canvasOutput {
+        top: 0;
+        left: 0;
+      }
+    </style>
+    <script
+      async
+      src="https://docs.opencv.org/master/opencv.js"
+      onload="onOpenCvReady();"
+      onerror="console.error('Error loading opencv.js');"
+    ></script>
+  </head>
+  <body>
+    <section id="hero">
+      <header>
+        <div class="content-outer">
+          <a href="/" class="logo">
+            <img src="default/logo.png" alt="logo icon" id="logo" />Re:Start
+          </a>
+          <ul>
+            <li>
+              <a href="/">Home</a>
+            </li>
+            <li>
+              <a href="/">Products</a>
+            </li>
+            <li>
+              <a
+                href="https://portal.veinternational.org/buybuttons/us015434/cart/"
+                target="_blank"
+              >
+                Cart
+              </a>
+            </li>
+          </ul>
+        </div>
+      </header>
+    </section>
+    <div class="customize">
+      <input type="file" id="fileInput" aria-label="File chooser" />
+      <div id="canvasContainer">
+        <canvas
+          id="canvasOutput"
+          tabindex="0"
+          aria-label="Image processing result"
+        ></canvas>
+      </div>
+      <div class="description">
+        <h3>Customize Iphone Case</h3>
+        <p>$15.00</p>
+        <label htmlFor="phone-options">Select Your Phone Model</label>
+        <select name="phone-options">
+          <option></option>
+          <option>Iphone 12</option>
+          <option>Iphone 13</option>
+          <option>Iphone 14</option>
+        </select>
+      </div>
+      <div id="buttonGroup">
+        <button onclick="zoom(.1)" aria-label="Zoom in" class="control">
+          Zoom in
+        </button>
+        <button onclick="zoom(-.1)" aria-label="Zoom out" class="control">
+          Zoom out
+        </button>
+        <button onclick="updateEdgeColor('black')" class="control">
+          Black Edges
+        </button>
+        <button onclick="updateEdgeColor('blue')" class="control">
+          Blue Edges
+        </button>
+        <button onclick="updateEdgeColor('mint')" class="control">
+          Mint Edges
+        </button>
+        <button onclick="updateEdgeColor('pink')" class="control">
+          Pink Edges
+        </button>
+        <button onclick="updateEdgeColor('white')" class="control">
+          White Edges
+        </button>
+        <button onclick="updateEdgeColor('yellow')" class="control">
+          Yellow Edges
+        </button>
+        <br />
+        <a
+          href="https://portal.veinternational.org/buybuttons/us015434/btn/customizable-iphone-case-003/"
+        >
+          <button id="buy">BUY</button>
+        </a>
+      </div>
+    </div>
+
+    <script>
+      let zoomLevel = 1;
+      let dragging = false;
+      let lastX, lastY;
+      let edgeColor = { r: 0, g: 0, b: 0 }; // initialize to black
+      let img, src, dst, edges;
+      let originalWidth,
+        translateX = 0,
+        translateY = 0;
+      let canvas = document.getElementById("canvasOutput"); // Move this above the onOpenCvReady function
+
+      function onOpenCvReady() {
+        document.getElementById("fileInput").addEventListener("change", (e) => {
+          img = new Image();
+          img.onload = function () {
+            handleImage(this);
+          };
+          img.src = URL.createObjectURL(e.target.files[0]);
+        });
+
+        canvas.addEventListener("mousedown", startDrag);
+        canvas.addEventListener("mouseup", endDrag);
+        canvas.addEventListener("mousemove", whileDrag);
+
+        // added touch event listeners for mobile compatibility
+        canvas.addEventListener("touchstart", startDrag);
+        canvas.addEventListener("touchend", endDrag);
+        canvas.addEventListener("touchmove", whileDrag);
+      }
+
+      function startDrag(e) {
+        dragging = true;
+        lastX = e.touches ? e.touches[0].clientX : e.clientX;
+        lastY = e.touches ? e.touches[0].clientY : e.clientY;
+      }
+
+      function endDrag(e) {
+        dragging = false;
+      }
+
+      function whileDrag(e) {
+        if (dragging) {
+          let dx = (e.touches ? e.touches[0].clientX : e.clientX) - lastX;
+          let dy = (e.touches ? e.touches[0].clientY : e.clientY) - lastY;
+
+          translateX += dx;
+          translateY += dy;
+
+          canvas.style.transform = `translate(${translateX}px, ${translateY}px)`;
+
+          lastX = e.touches ? e.touches[0].clientX : e.clientX;
+          lastY = e.touches ? e.touches[0].clientY : e.clientY;
+        }
+      }
+
+      function handleImage(image) {
+        src = cv.imread(image);
+        dst = new cv.Mat();
+        edges = new cv.Mat();
+        cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+
+        let ksize = new cv.Size(5, 5);
+        cv.GaussianBlur(dst, dst, ksize, 0, 0, cv.BORDER_DEFAULT);
+
+        cv.Canny(dst, edges, 15, 45, 3, true);
+
+        let finerEdges = new cv.Mat();
+        cv.Canny(dst, finerEdges, 10, 20, 3, true);
+
+        cv.bitwise_or(edges, finerEdges, edges);
+
+        originalWidth = canvas.width;
+
+        cv.imshow("canvasOutput", edges);
+        colorEdges(edgeColor);
+
+        src.delete();
+        edges.delete();
+        dst.delete();
+        finerEdges.delete();
+      }
+
+      function colorEdges(color) {
+        let context = canvas.getContext("2d");
+        let imgData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+        for (let i = 0; i < imgData.data.length; i += 4) {
+          if (
+            imgData.data[i] === 255 &&
+            imgData.data[i + 1] === 255 &&
+            imgData.data[i + 2] === 255
+          ) {
+            imgData.data[i] = color.r;
+            imgData.data[i + 1] = color.g;
+            imgData.data[i + 2] = color.b;
+          } else {
+            imgData.data[i + 3] = 0;
+          }
+        }
+        context.putImageData(imgData, 0, 0);
+      }
+
+      function updateEdgeColor(colorName) {
+        let imageUrl;
+        switch (colorName) {
+          case "black":
+            imageUrl = "url('default/black.png')";
+            break;
+          case "blue":
+            imageUrl = "url('default/blue.png')";
+            break;
+          case "mint":
+            imageUrl = "url('default/mint.png')";
+            break;
+          case "pink":
+            imageUrl = "url('default/pink.png')";
+            break;
+          case "purple":
+            imageUrl = "url('default/purple.png')";
+            break;
+          case "yellow":
+            imageUrl = "url('default/yellow.png')";
+            break;
+          case "white":
+            imageUrl = "url('default/white.png')";
+            break;
+        }
+        document.querySelector(".customize").style.backgroundImage = imageUrl;
+      }
+
+      function zoom(scaleFactor) {
+        zoomLevel += scaleFactor;
+        canvas.style.width = originalWidth * zoomLevel + "px";
+      }
+    </script>
+  </body>
+</html>
